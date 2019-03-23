@@ -1,0 +1,101 @@
+---
+title: "Diamond"
+author: "Spark Li"
+date: "November 20, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Summarizing data
+
+```{r, eval = TRUE}
+# Clear workspace
+rm(list=ls(all=TRUE))
+
+# Set working directory
+setwd("/Users/Spark/Documents/R/STOR 455")
+
+# Load dataset
+diamond <- read.delim("us.carata.txt")
+
+# Look at dataset
+summary(diamond)
+sd(diamond$price)
+sd(diamond$carat)
+
+# Plots and Histograms
+boxplot(diamond$price)
+boxplot(diamond$carat)
+for(i in 2:4){
+  par(ask = FALSE)
+  plot(diamond[,i], xlab = names(diamond)[i])
+}
+plot(diamond$carat, diamond$price)
+for(i in 2:4){
+  par(ask = FALSE)
+  plot(diamond[,i], diamond$price, xlab = names(diamond)[i])
+}
+```
+
+## ANOVA for nested models
+
+```{r, eval = TRUE}
+diamond$carat_squared = diamond$carat^2
+lm_1 = lm(log(price) ~ carat + carat_squared + color + clarity + certification, data = diamond)
+summary(lm_1)
+anova(lm(log(price) ~ .-color, data = diamond), lm_1)
+anova(lm(log(price) ~ .-clarity, data = diamond), lm_1)
+anova(lm(log(price) ~ .-certification, data = diamond), lm_1)
+full.lm = lm(log(price) ~ carat + carat_squared + color + carat:color + clarity + carat:clarity + color:clarity, data = diamond)
+summary(full.lm)
+anova(lm(log(price) ~ carat + carat_squared + color + clarity + carat:clarity + color:clarity, data = diamond), full.lm)
+anova(lm(log(price) ~ carat + carat_squared + color + carat:color + clarity + color:clarity, data = diamond), full.lm)
+anova(lm(log(price) ~ carat + carat_squared + color + carat:color + clarity + carat:clarity, data = diamond), full.lm)
+lm_2 = lm(log(price) ~ carat + carat_squared + color + clarity + carat:clarity + color:clarity, data = diamond)
+summary(lm_2)
+```
+```
+I decide to remove certification and carat:color. The interaction term carat:clarity and color:clarity should almost be removed due to they are not statistically significant enough in ANOVA test.
+```
+## Collinearity
+
+```{r, eval = TRUE}
+# Install vif package
+require("car")
+vif(lm_2)
+avPlots(lm_2)
+diamond$carat_centered = diamond$carat - mean(diamond$carat)
+diamond$carat_centered_squared = (diamond$carat_centered)^2
+lm_3 = lm(log(price) ~ carat_centered + carat_centered_squared + color + clarity + carat_centered:clarity + color:clarity, data = diamond)
+vif(lm_3)
+avPlots(lm_3)
+```
+```
+Nothing worried no matter whether the continuous variables are centered.
+```
+
+## Narrowing down the model
+```{r, eval = TRUE}
+library(leaps)
+predict_1 = regsubsets(log(price) ~ carat_centered + carat_centered_squared + color + clarity + carat_centered:clarity + color:clarity, data = diamond, method = c("forward"))
+summary(predict_1)
+plot(predict_1, scale = "adjr2")
+plot(predict_1, scale = "Cp")
+plot(predict_1, scale = "bic")
+predict_2 = regsubsets(log(price) ~ carat_centered + carat_centered_squared + color + clarity + carat_centered:clarity + color:clarity, data = diamond, method = c("backward"))
+summary(predict_2)
+plot(predict_2, scale = "adjr2")
+plot(predict_2, scale = "Cp")
+plot(predict_2, scale = "bic")
+lm_4 = lm(log(price) ~ carat_centered + carat_centered_squared + color + clarity, data = diamond)
+summary(lm_4)
+predict(lm_4)
+plot(log(diamond$price), predict(lm_4))
+plot(lm_4)
+```
+```
+The selection method suggests to remove all interaction terms.
+```
